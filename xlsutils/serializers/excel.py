@@ -6,10 +6,10 @@ import xlrd
 import xlwt
 from datetime import datetime
 
-#from django.core.serializers.python import Serializer as PythonSerializer
-from django.core.serializers.base import Serializer
 
-class Serializer(Serializer):
+_all__=('Serializer', 'Deserializer')
+
+class Serializer(base.Serializer):
     internal_use_only = False
     def start_serialization(self):
         self.workbook = xlwt.Workbook(encoding='utf-8')
@@ -17,11 +17,13 @@ class Serializer(Serializer):
         self.dateStyle = xlwt.XFStyle()
         self.dateStyle.num_format_str='YYYY-MM-DD hh:mm'
         self.style = xlwt.XFStyle()
-        
+    
+
     def start_object(self, obj):
         self._current = {}
         self._current_order=[]
-        
+    
+
     def end_object(self, obj):
         model_name = smart_unicode(obj._meta)
         if model_name in self.sheets:
@@ -43,8 +45,7 @@ class Serializer(Serializer):
                 col_index +=1
         
         #write pk in col 0
-        sheet.write(row_index, 0, smart_unicode(obj._get_pk_val(), strings_only=True))
-        
+        sheet.write(row_index, 0, smart_unicode(obj._get_pk_val(), strings_only=True))    
         #and the rest of the fields after that
         col_index=1
         for key in self._current_order:
@@ -59,6 +60,7 @@ class Serializer(Serializer):
         self.sheets[model_name]['row_index']=row_index
         self._current=None
     
+
     def handle_field(self, obj, field):
         self._current_order.append(field.name)
         value = field._get_val_from_obj(obj)
@@ -70,6 +72,7 @@ class Serializer(Serializer):
         else:
             self._current[field.name] = field.value_to_string(obj)  
     
+
     def handle_fk_field(self, obj, field):
         self._current_order.append(field.name)
         related = getattr(obj, field.name)
@@ -82,23 +85,25 @@ class Serializer(Serializer):
                 related = getattr(related, field.rel.field_name)
         self._current[field.name] = smart_unicode(related, strings_only=True)
 
+
     def handle_m2m_field(self, obj, field):
         self._current_order.append(field.name)
         if field.creates_table:
             self._current[field.name] = [smart_unicode(related._get_pk_val(), strings_only=True)
                                for related in getattr(obj, field.name).iterator()]
+
     
-    def end_serialization(self):
-        #self.workbook.save(self.stream)
-        
+    def end_serialization(self):      
         filename="dumpdata.xls"
         self.stream.write(u"Result saved in %s" % (filename))
         self.workbook.save(filename) #TODO:hack because of stream making unreadable xls.
-        #print u"Result saved in %s" % (filename)
+
 
     def getvalue(self):
         if callable(getattr(self.stream, 'getvalue', None)):
             return self.stream.getvalue()
+
+
 
 class Deserializer(base.Deserializer):
     
@@ -206,7 +211,6 @@ def _col_index(sheet):
     columns = sheet.ncols
     for col_index in range(columns):
         value = str(sheet.cell(0, col_index).value).strip().lower().replace(" ", "_")
-        #print "%s = %s" %(value, col_index)
         col_name_key[value]=col_index
         name_col_key[col_index]=value
     return (col_name_key, name_col_key)
@@ -215,7 +219,6 @@ def _read_row(sheet, row_index, name_col_key):
     columns = sheet.ncols
     values={}
     for col_index in range(columns):
-        #print "%s row=%s, col=%s" % (sheet.name, row_index, col_index,)
         cell = sheet.cell(row_index, col_index)
         if cell.ctype == xlrd.XL_CELL_DATE:
             value = datetime(*xlrd.xldate_as_tuple(cell.value, 0))
